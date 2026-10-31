@@ -1,6 +1,8 @@
 # AntiDoze — Modern Automotive Driver Vigilance System
 
-Formerly *RoadAwake*, **AntiDoze** is an AI-powered driver fatigue monitoring system engineered to safeguard truck drivers from micro-sleeps, inattention, and directional head slumps. It uses MediaPipe Face Mesh and OpenCV within a **modern 2026 digital cockpit HUD**, monitoring:
+roadawake (file://SAM/Users/samue/.gemini/antigravity/scratch/roadawake)
+
+**AntiDoze** is an AI-powered driver fatigue monitoring system engineered to safeguard truck drivers from micro-sleeps, inattention, and directional head slumps. It uses MediaPipe Face Mesh and OpenCV within a **modern 2026 digital cockpit HUD**, monitoring:
 
 1. **Pre-Drive Trip Planning & Alert**:
    - The driver inputs intended driving duration before tracking begins.
