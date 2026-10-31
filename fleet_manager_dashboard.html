@@ -1,0 +1,1497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AntiDoze Fleet Command — Dynamic Driver Alert Database</title>
+  <style>
+    :root {
+      --bg-dark: #080C15;
+      --bg-card: #111726;
+      --bg-card-hover: #162035;
+      --border-color: #222E46;
+      --text-main: #F1F5F9;
+      --text-muted: #94A3B8;
+      --accent-cyan: #38BDF8;
+      --accent-blue: #0284C7;
+      --status-safe: #10B981;
+      --status-caution: #F59E0B;
+      --status-warning: #F97316;
+      --status-critical: #EF4444;
+      --critical-glow: rgba(239, 68, 68, 0.45);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      padding: 20px;
+      min-height: 100vh;
+    }
+
+    /* Top Command Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-logo {
+      width: 38px;
+      height: 38px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #0284C7, #38BDF8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 20px;
+      color: #FFF;
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.5);
+    }
+
+    .brand-titles h1 {
+      font-size: 19px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-titles p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .sync-controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .sync-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #0D1B2A;
+      border: 1px solid #1E3A8A;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      color: #93C5FD;
+      font-weight: 600;
+    }
+
+    .pulsing-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #38BDF8;
+      box-shadow: 0 0 8px #38BDF8;
+      animation: pulseSync 1.5s infinite;
+    }
+
+    @keyframes pulseSync {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    .btn {
+      background: #1E293B;
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn:hover {
+      background: #334155;
+      border-color: #475569;
+    }
+
+    .btn-primary {
+      background: #0284C7;
+      border-color: #0369A1;
+      color: #FFF;
+    }
+
+    .btn-primary:hover {
+      background: #0369A1;
+    }
+
+    /* Emergency Alert Banner (Shown when Critical Drivers exist) */
+    .emergency-banner {
+      display: none;
+      background: linear-gradient(90deg, #7F1D1D, #991B1B, #7F1D1D);
+      border: 2px solid #EF4444;
+      border-radius: 10px;
+      padding: 14px 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 0 25px rgba(239, 68, 68, 0.6);
+      animation: emergencyPulse 1.2s infinite alternate;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    @keyframes emergencyPulse {
+      0% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); border-color: #DC2626; }
+      100% { box-shadow: 0 0 30px rgba(239, 68, 68, 0.85); border-color: #F87171; }
+    }
+
+    .emergency-content {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .siren-icon {
+      font-size: 26px;
+      animation: rotateSiren 0.8s infinite alternate;
+    }
+
+    @keyframes rotateSiren {
+      0% { transform: scale(1) rotate(-10deg); }
+      100% { transform: scale(1.15) rotate(10deg); }
+    }
+
+    .emergency-text h2 {
+      font-size: 16px;
+      font-weight: 800;
+      color: #FEF2F2;
+      letter-spacing: 0.5px;
+    }
+
+    .emergency-text p {
+      font-size: 13px;
+      color: #FECACA;
+      margin-top: 2px;
+    }
+
+    /* KPI Summary Row */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .kpi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 16px 18px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: #475569;
+    }
+
+    .kpi-card.kpi-critical::before { background: var(--status-critical); }
+    .kpi-card.kpi-warning::before { background: var(--status-warning); }
+    .kpi-card.kpi-caution::before { background: var(--status-caution); }
+    .kpi-card.kpi-safe::before { background: var(--status-safe); }
+    .kpi-card.kpi-blue::before { background: var(--accent-cyan); }
+
+    .kpi-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .kpi-value {
+      font-size: 28px;
+      font-weight: 800;
+      margin-top: 6px;
+      color: var(--text-main);
+    }
+
+    .kpi-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Section Cards */
+    .section-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    select, input[type="text"] {
+      background: #1E293B;
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      outline: none;
+    }
+
+    select:focus, input[type="text"]:focus {
+      border-color: var(--accent-cyan);
+    }
+
+    /* Fleet Drivers Grid */
+    .drivers-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    .driver-card {
+      background: #0F172A;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 14px 16px;
+      transition: transform 0.2s, box-shadow 0.2s;
+      position: relative;
+    }
+
+    .driver-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    }
+
+    .driver-card.driver-critical {
+      border: 2px solid var(--status-critical);
+      background: linear-gradient(145deg, #1E1218, #300A12);
+      box-shadow: 0 0 18px var(--critical-glow);
+      animation: cardPulse 1.5s infinite alternate;
+    }
+
+    .driver-card.driver-offline {
+      opacity: 0.72;
+      border-style: dashed;
+      border-color: #334155;
+      background: #0B1120;
+    }
+
+    .driver-card.driver-offline:hover {
+      opacity: 1;
+      border-color: #475569;
+    }
+
+    /* Status Toggle Filter Pills */
+    .toggle-pills {
+      display: inline-flex;
+      background: #090E17;
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 3px;
+      gap: 3px;
+    }
+
+    .pill-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 4px 12px;
+      border-radius: 14px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .pill-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .pill-btn.active {
+      background: #1E293B;
+      color: var(--accent-cyan);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    }
+
+    .pill-btn.pill-online.active {
+      color: #34D399;
+      background: rgba(16, 185, 129, 0.2);
+    }
+
+    .pill-btn.pill-offline.active {
+      color: #94A3B8;
+      background: rgba(148, 163, 184, 0.15);
+    }
+
+    .btn-danger {
+      background: rgba(220, 38, 38, 0.2);
+      color: #F87171;
+      border: 1px solid rgba(220, 38, 38, 0.4);
+    }
+
+    .btn-danger:hover {
+      background: #DC2626;
+      color: #FFF;
+      border-color: #EF4444;
+    }
+
+    .btn-delete {
+      background: rgba(239, 68, 68, 0.12);
+      color: #F87171;
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      padding: 4px 8px;
+      font-size: 11px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .btn-delete:hover {
+      background: #DC2626;
+      color: #FFF;
+      border-color: #EF4444;
+      transform: scale(1.04);
+    }
+
+    @keyframes cardPulse {
+      0% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
+      100% { box-shadow: 0 0 22px rgba(239, 68, 68, 0.7); }
+    }
+
+    .driver-card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .driver-id-badge {
+      font-family: monospace;
+      font-size: 13px;
+      font-weight: 700;
+      background: #1E293B;
+      color: var(--accent-cyan);
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid #334155;
+    }
+
+    .driver-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: #FFF;
+      margin-bottom: 4px;
+    }
+
+    .driver-route {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .driver-metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      background: #090E17;
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      margin-bottom: 10px;
+    }
+
+    .metric-item span:first-child {
+      color: var(--text-muted);
+      display: block;
+    }
+
+    .metric-item span:last-child {
+      color: var(--text-main);
+      font-weight: 700;
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .badge-safe {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34D399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .badge-caution {
+      background: rgba(245, 158, 11, 0.15);
+      color: #FBBF24;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .badge-warning {
+      background: rgba(249, 115, 22, 0.15);
+      color: #FB923C;
+      border: 1px solid rgba(249, 115, 22, 0.3);
+    }
+
+    .badge-critical {
+      background: rgba(239, 68, 68, 0.3);
+      color: #F87171;
+      border: 1px solid rgba(239, 68, 68, 0.6);
+      font-weight: 800;
+    }
+
+    .host-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      background: #0F172A;
+      border: 1px solid var(--border-color);
+      font-size: 12px;
+      color: #94A3B8;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .host-pill:hover {
+      background: #1E293B;
+      border-color: #38BDF8;
+      color: #F1F5F9;
+    }
+
+    /* Database Table Styling */
+    .table-responsive {
+      overflow-x: auto;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13px;
+    }
+
+    th {
+      background: #0B1322;
+      color: var(--text-muted);
+      font-weight: 700;
+      font-size: 12px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border-color);
+      white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    td {
+      padding: 11px 14px;
+      border-bottom: 1px solid #1E293B;
+      color: #CBD5E1;
+      vertical-align: middle;
+    }
+
+    tr:hover {
+      background-color: var(--bg-card-hover);
+    }
+
+    /* ============================================================ */
+    /* CRITICAL DATABASE ENTRY HIGH-VISIBILITY STYLING */
+    /* ============================================================ */
+    tr.critical-row {
+      background: linear-gradient(90deg, rgba(220, 38, 38, 0.35), rgba(153, 27, 27, 0.25), rgba(220, 38, 38, 0.35)) !important;
+      border-left: 6px solid #EF4444 !important;
+      border-right: 2px solid #EF4444 !important;
+      box-shadow: inset 0 0 15px rgba(239, 68, 68, 0.3);
+      animation: criticalRowGlow 1.8s infinite alternate ease-in-out;
+    }
+
+    tr.critical-row td {
+      color: #FFF !important;
+      font-weight: 600;
+      border-bottom: 1px solid #DC2626 !important;
+    }
+
+    tr.critical-row .driver-id-badge {
+      background: #7F1D1D !important;
+      color: #FEF2F2 !important;
+      border-color: #EF4444 !important;
+      font-weight: 800;
+      box-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+    }
+
+    tr.critical-row .timestamp-cell {
+      color: #FCA5A5 !important;
+      font-weight: 700;
+    }
+
+    .critical-beacon {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #EF4444;
+      color: #FFF;
+      font-weight: 900;
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      box-shadow: 0 0 12px #EF4444;
+      letter-spacing: 0.5px;
+      animation: beaconFlash 0.9s infinite alternate;
+    }
+
+    @keyframes criticalRowGlow {
+      0% {
+        background-color: rgba(185, 28, 28, 0.35);
+      }
+      100% {
+        background-color: rgba(239, 68, 68, 0.55);
+      }
+    }
+
+    @keyframes beaconFlash {
+      0% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0.85; transform: scale(1.05); }
+    }
+
+    /* Timestamp cell */
+    .timestamp-cell {
+      font-family: monospace;
+      font-size: 12px;
+      color: #94A3B8;
+      white-space: nowrap;
+    }
+
+    .telemetry-cell {
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    /* Empty state */
+    .empty-state {
+      padding: 30px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    footer {
+      text-align: center;
+      padding: 20px;
+      color: var(--text-muted);
+      font-size: 12px;
+      border-top: 1px solid var(--border-color);
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Command Header -->
+  <header>
+    <div class="brand-group">
+      <div class="brand-logo">AD</div>
+      <div class="brand-titles">
+        <h1>AntiDoze Fleet Command <span>• Real-Time Driver Vigilance</span></h1>
+        <p>Enterprise Safety Monitoring, Incident Dispatch & Automated Telemetry Database</p>
+      </div>
+    </div>
+    <div class="sync-controls">
+      <div class="host-pill" id="hostPill" onclick="promptChangeServerHost()" title="Click to view or connect to another Cab Server IP">
+        <span>🌐</span>
+        <span id="hostLabel">Host: Connecting...</span>
+      </div>
+      <div class="sync-badge">
+        <div class="pulsing-dot"></div>
+        <span id="syncCountdown">Next DB update: 10s</span>
+      </div>
+      <button class="btn btn-primary" id="btnRefresh" onclick="fetchFleetData()">
+        ↻ Sync Now
+      </button>
+      <button class="btn" id="btnSoundToggle" onclick="toggleSound()">
+        🔊 Sound: ON
+      </button>
+    </div>
+  </header>
+
+  <!-- High-Priority Critical Incident Emergency Banner -->
+  <div class="emergency-banner" id="emergencyBanner">
+    <div class="emergency-content">
+      <div class="siren-icon">🚨</div>
+      <div class="emergency-text">
+        <h2 id="emergencyTitle">CRITICAL DRIVER ALERT: 3/3 STRIKES REACHED</h2>
+        <p id="emergencyDesc">One or more drivers have suffered a critical fatigue event. Melodic cabin alarm active. Immediate intervention required.</p>
+      </div>
+    </div>
+    <div class="emergency-actions">
+      <button class="btn btn-primary" style="background: #FFF; color: #991B1B; font-weight: 800;" onclick="filterCriticalOnly()">
+        VIEW CRITICAL DRIVERS
+      </button>
+    </div>
+  </div>
+
+  <!-- Live Non-Simulation Cab Client Telemetry Stream -->
+  <div class="section-card" id="liveCabCard" style="border: 2px solid #0284C7; background: linear-gradient(135deg, #0B1322, #111A2E); margin-bottom: 20px;">
+    <div class="section-header" style="margin-bottom: 12px;">
+      <div class="section-title">
+        <div class="pulsing-dot" id="liveDot" style="background: #10B981; box-shadow: 0 0 10px #10B981; width: 12px; height: 12px;"></div>
+        <span style="font-weight: 800; letter-spacing: 0.3px;">Live AntiDoze Cab Stream • Active AI Monitoring Client</span>
+      </div>
+      <div class="filter-group">
+        <span class="badge badge-safe" id="liveConnectionBadge">● Live Cab Linked</span>
+        <span style="font-size: 12px; color: var(--text-muted);" id="liveLastPing">Updated: Just now</span>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px;">
+      <div style="background: #090E17; padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color);">
+        <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Active Driver & Strike Rank</div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px;">
+          <span class="driver-id-badge" id="liveDriverId" style="font-size: 15px; padding: 4px 10px;">DRV-101</span>
+          <span id="liveStrikeBadge"><span class="badge badge-safe">🟢 TOP DRIVER (0/3)</span></span>
+        </div>
+        <div style="font-size: 12px; color: var(--text-muted); margin-top: 6px;" id="liveCameraState">Camera: Active • Live AI Tracking</div>
+      </div>
+
+      <div style="background: #090E17; padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color);">
+        <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Live Eye Openness (EAR)</div>
+        <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 6px;">
+          <span style="font-size: 22px; font-weight: 800; color: #38BDF8;" id="liveEarVal">0.300</span>
+          <span style="font-size: 12px; font-weight: 700; color: #10B981;" id="liveEarState">Eyes Open</span>
+        </div>
+        <div style="background: #1E293B; height: 6px; border-radius: 3px; margin-top: 8px; overflow: hidden;">
+          <div id="liveEarBar" style="width: 75%; height: 100%; background: #10B981; transition: width 0.25s, background 0.25s;"></div>
+        </div>
+      </div>
+
+      <div style="background: #090E17; padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color);">
+        <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Posture & Glance Direction</div>
+        <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 6px;">
+          <span style="font-size: 22px; font-weight: 800; color: #F1F5F9;" id="livePitchVal">1.05</span>
+          <span style="font-size: 12px; font-weight: 700; color: #38BDF8;" id="liveGlanceVal">FORWARD</span>
+        </div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 6px;" id="livePostureSub">Posture Normal (Upright)</div>
+      </div>
+
+      <div style="background: #090E17; padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border-color);">
+        <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Clean Driving Streak</div>
+        <div style="font-size: 22px; font-weight: 800; color: #FBBF24; margin-top: 6px;" id="liveStreakVal">⚡ 00:00</div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 6px;" id="liveTripVal">Drive Clock: 00:00:00</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI Summary Row -->
+  <div class="kpi-row">
+    <div class="kpi-card kpi-blue">
+      <div class="kpi-title">Fleet Vehicles</div>
+      <div class="kpi-value" id="kpiTotalDrivers">0</div>
+      <div class="kpi-sub" id="kpiConnectionSub">0 Connected • 0 Inactive</div>
+    </div>
+    <div class="kpi-card kpi-critical">
+      <div class="kpi-title">Critical Alerts (Tier 4)</div>
+      <div class="kpi-value" id="kpiCriticalDrivers" style="color: #F87171;">0</div>
+      <div class="kpi-sub">3/3 strikes • Alarm sounding</div>
+    </div>
+    <div class="kpi-card kpi-warning">
+      <div class="kpi-title">High Warning (Tier 3)</div>
+      <div class="kpi-value" id="kpiWarningDrivers" style="color: #FB923C;">0</div>
+      <div class="kpi-sub">2/3 strikes • Near critical</div>
+    </div>
+    <div class="kpi-card kpi-caution">
+      <div class="kpi-title">Caution (Tier 2)</div>
+      <div class="kpi-value" id="kpiCautionDrivers" style="color: #FBBF24;">0</div>
+      <div class="kpi-sub">1/3 strikes • First alert</div>
+    </div>
+    <div class="kpi-card kpi-safe">
+      <div class="kpi-title">Top Drivers (Tier 1)</div>
+      <div class="kpi-value" id="kpiTopDrivers" style="color: #34D399;">0</div>
+      <div class="kpi-sub">0/3 strikes • Alert & safe</div>
+    </div>
+    <div class="kpi-card kpi-blue">
+      <div class="kpi-title">Database Records</div>
+      <div class="kpi-value" id="kpiTotalLogs">0</div>
+      <div class="kpi-sub">10s telemetry log stream</div>
+    </div>
+  </div>
+
+  <!-- Fleet Drivers Overview Section -->
+  <div class="section-card">
+    <div class="section-header">
+      <div class="section-title">
+        🚛 Active Fleet Cab Status
+      </div>
+      <div class="filter-group">
+        <div class="toggle-pills" id="driverStatusToggleGroup">
+          <button class="pill-btn active" id="btnFilterAll" onclick="setDriverOnlineFilter('all')">All Drivers (<span id="cntAllDrivers">0</span>)</button>
+          <button class="pill-btn pill-online" id="btnFilterOnline" onclick="setDriverOnlineFilter('online')">● Online (<span id="cntOnlineDrivers">0</span>)</button>
+          <button class="pill-btn pill-offline" id="btnFilterOffline" onclick="setDriverOnlineFilter('offline')">○ Offline (<span id="cntOfflineDrivers">0</span>)</button>
+        </div>
+      </div>
+    </div>
+    <div class="drivers-grid" id="driversGrid">
+      <!-- Injected via JavaScript -->
+    </div>
+  </div>
+
+  <!-- Dynamic Database Telemetry Log Stream -->
+  <div class="section-card">
+    <div class="section-header">
+      <div class="section-title">
+        📋 Dynamic Fleet Telemetry Database (Updates Every 10 Seconds)
+      </div>
+      <div class="filter-group">
+        <label for="driverFilter" style="font-size: 13px; color: var(--text-muted);">Driver:</label>
+        <select id="driverFilter" onchange="fetchFleetData()">
+          <option value="">All Drivers</option>
+        </select>
+
+        <label for="criticalFilter" style="font-size: 13px; color: var(--text-muted); margin-left: 8px;">Filter:</label>
+        <select id="criticalFilter" onchange="fetchFleetData()">
+          <option value="all">All Events & Heartbeats</option>
+          <option value="critical">🚨 Critical Incidents Only</option>
+        </select>
+
+        <button class="btn" onclick="exportCSV()">📥 Export CSV</button>
+        <button class="btn btn-danger" onclick="clearAllLogs()" title="Remove telemetry drive logs from the database">🗑️ Clear Logs</button>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table id="telemetryTable">
+        <thead>
+          <tr>
+            <th>Strike Status</th>
+            <th>Driver ID</th>
+            <th>Date & Time Stamp</th>
+            <th>Event / Alert Type</th>
+            <th>Vehicle & Route</th>
+            <th>EAR / Pitch</th>
+            <th>Glance Posture</th>
+            <th>Clean Streak</th>
+            <th>Trip Clock</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="telemetryTableBody">
+          <tr>
+            <td colspan="10" class="empty-state">Connecting to dynamic AntiDoze database...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>
+    AntiDoze Automotive Vigilance &copy; 2026 • Enterprise Fleet Safety Architecture • Automated 10s Heartbeat Sync Active
+  </footer>
+
+  <script>
+    // Base API URL supports:
+    // 1. URL parameter: ?host=10.180.128.138:8080
+    // 2. LocalStorage override: localStorage.getItem('antidoze_cab_host')
+    // 3. Direct web access from another computer (http://10.180.128.138:8080/ -> relative '')
+    // 4. File protocol fallback (file:///... -> http://127.0.0.1:8080)
+    const urlParams = new URLSearchParams(window.location.search);
+    let customHost = urlParams.get('host') || localStorage.getItem('antidoze_cab_host') || '';
+    if (customHost && !customHost.startsWith('http://') && !customHost.startsWith('https://')) {
+      customHost = 'http://' + customHost;
+    }
+
+    let API_BASE = customHost || ((window.location.protocol === 'file:') ? 'http://127.0.0.1:8080' : '');
+
+    function updateHostPill(networkPrimaryIp) {
+      const pill = document.getElementById("hostLabel");
+      if (!pill) return;
+      if (customHost) {
+        pill.innerText = `Host: ${customHost.replace(/^https?:\/\//, '')}`;
+        pill.style.color = "#38BDF8";
+      } else if (window.location.protocol === 'file:') {
+        pill.innerText = networkPrimaryIp ? `Cab Host: ${networkPrimaryIp}:8080` : 'Host: Local (127.0.0.1:8080)';
+        pill.style.color = "#94A3B8";
+      } else {
+        pill.innerText = `Host: ${window.location.host || 'Connected'}`;
+        pill.style.color = "#34D399";
+      }
+    }
+
+    function promptChangeServerHost() {
+      const current = customHost ? customHost.replace(/^https?:\/\//, '') : (window.location.host || '10.180.128.138:8080');
+      const newHost = prompt(
+        "Enter AntiDoze Server IP & Port (e.g. 10.180.128.138:8080 or leave blank for auto):",
+        current
+      );
+      if (newHost !== null) {
+        const trimmed = newHost.trim();
+        if (trimmed) {
+          localStorage.setItem('antidoze_cab_host', trimmed);
+          customHost = trimmed.startsWith('http') ? trimmed : 'http://' + trimmed;
+          API_BASE = customHost;
+        } else {
+          localStorage.removeItem('antidoze_cab_host');
+          customHost = '';
+          API_BASE = (window.location.protocol === 'file:') ? 'http://127.0.0.1:8080' : '';
+        }
+        updateHostPill();
+        fetchFleetData();
+        fetchLiveCabStream();
+      }
+    }
+
+    // Auto-fetch network interface info from server
+    async function checkNetworkInfo() {
+      try {
+        const res = await fetch(`${API_BASE}/api/network-info`);
+        if (res.ok) {
+          const info = await res.json();
+          updateHostPill(info.primary_ip);
+        } else {
+          updateHostPill();
+        }
+      } catch (e) {
+        updateHostPill();
+      }
+    }
+
+    let soundEnabled = true;
+    let countdownSec = 10;
+    let lastCriticalCount = 0;
+    let audioContext = null;
+
+    // Web Audio alert chime
+    function playAlertChime() {
+      if (!soundEnabled) return;
+      try {
+        if (!audioContext) {
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(784, audioContext.currentTime); // G5
+        osc.frequency.setValueAtTime(523, audioContext.currentTime + 0.15); // C5
+        gain.gain.setValueAtTime(0.2, audioContext.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+        osc.start();
+        osc.stop(audioContext.currentTime + 0.45);
+      } catch (e) {
+        console.log("Audio alert blocked:", e);
+      }
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      const btn = document.getElementById("btnSoundToggle");
+      btn.innerText = soundEnabled ? "🔊 Sound: ON" : "🔇 Sound: OFF";
+    }
+
+    function filterCriticalOnly() {
+      document.getElementById("criticalFilter").value = "critical";
+      fetchFleetData();
+    }
+
+    function getStrikeBadgeHtml(strikeCount, strikeStatus, isCritical) {
+      strikeStatus = strikeStatus || "";
+      if (isCritical || strikeCount >= 3 || strikeStatus.includes("CRITICAL")) {
+        return `<span class="critical-beacon">🚨 CRITICAL (${strikeCount}/3)</span>`;
+      } else if (strikeCount === 2 || strikeStatus.includes("WARNING")) {
+        return `<span class="badge badge-warning">⚠️ WARNING (${strikeCount}/3)</span>`;
+      } else if (strikeCount === 1 || strikeStatus.includes("CAUTION")) {
+        return `<span class="badge badge-caution">🟡 CAUTION (${strikeCount}/3)</span>`;
+      } else {
+        return `<span class="badge badge-safe">🟢 TOP DRIVER (${strikeCount}/3)</span>`;
+      }
+    }
+
+    // State trackers for real-time instantaneous strike & connection updates
+    let lastLiveStrikes = null;
+    let lastLiveConn = null;
+    let lastLiveAlert = null;
+
+    // High-frequency live cab telemetry stream (non-simulation live client)
+    async function fetchLiveCabStream() {
+      try {
+        const res = await fetch(`${API_BASE}/api/live`);
+        if (!res.ok) return;
+        const live = await res.json();
+
+        const badge = document.getElementById("liveConnectionBadge");
+        const dot = document.getElementById("liveDot");
+        const card = document.getElementById("liveCabCard");
+
+        const isConnected = !!(live && live.driver_id && live.is_connected !== false);
+
+        if (!isConnected) {
+          badge.className = "badge";
+          badge.style.background = "#1E293B";
+          badge.style.color = "#94A3B8";
+          badge.style.border = "1px solid #334155";
+          badge.innerText = "○ AntiDoze Inactive / Disconnected";
+          dot.style.background = "#64748B";
+          dot.style.boxShadow = "none";
+          document.getElementById("liveCameraState").innerText = "AntiDoze client offline. Launch 'python antidoze.py' to connect.";
+
+          // Clear warnings and reset styling for inactive state
+          card.style.border = "1px solid var(--border-color)";
+          card.style.background = "#0B1322";
+          card.style.boxShadow = "none";
+          card.style.transform = "none";
+          document.getElementById("liveStrikeBadge").innerHTML = '<span class="badge" style="background: #1E293B; color: #64748B; border: 1px solid #334155;">○ STANDBY (OFFLINE)</span>';
+          document.getElementById("liveEarVal").innerText = "—";
+          document.getElementById("liveEarState").innerText = "Standby";
+          document.getElementById("liveEarState").style.color = "#94A3B8";
+          document.getElementById("liveEarBar").style.width = "0%";
+          document.getElementById("livePitchVal").innerText = "—";
+          document.getElementById("livePostureSub").innerText = "AntiDoze client offline";
+          document.getElementById("livePostureSub").style.color = "#94A3B8";
+          document.getElementById("liveGlanceVal").innerText = "—";
+
+          // Trigger immediate fleet refresh if cab went offline
+          if (lastLiveConn !== false) {
+            const wasConnected = (lastLiveConn === true);
+            lastLiveConn = false;
+            if (wasConnected) {
+              console.log("[AntiDoze] Cab client went offline. Refreshing fleet data immediately.");
+              fetchFleetData();
+            }
+          }
+          return;
+        }
+
+        // Active connection
+        badge.className = "badge badge-safe";
+        badge.innerText = "● AntiDoze Active & Connected";
+        dot.style.background = "#10B981";
+        dot.style.boxShadow = "0 0 10px #10B981";
+
+        // Active driver id & timestamp
+        document.getElementById("liveDriverId").innerText = live.driver_id;
+        if (live.updated_at) {
+          const timePart = live.updated_at.split(" ")[1] || live.updated_at;
+          document.getElementById("liveLastPing").innerText = `Updated: ${timePart}`;
+        }
+
+        // Real-Time Strike System Processing
+        const isCrit = (live.is_critical || live.strike_count >= 3);
+        const currentStrikes = (live.strike_count !== undefined && live.strike_count !== null) ? live.strike_count : 0;
+        document.getElementById("liveStrikeBadge").innerHTML = getStrikeBadgeHtml(currentStrikes, live.strike_status, isCrit);
+
+        // Instant response when the user actually receives or heals strikes in the cab
+        if (lastLiveStrikes !== null && currentStrikes !== lastLiveStrikes) {
+          if (currentStrikes > lastLiveStrikes) {
+            playAlertChime();
+            // Flash live cab card
+            card.style.transform = "scale(1.01)";
+            setTimeout(() => { card.style.transform = "none"; }, 300);
+          }
+          // Immediately update database table, KPIs, and driver cards without waiting 10s
+          fetchFleetData();
+        }
+        lastLiveStrikes = currentStrikes;
+
+        // Instant update when cab comes online again
+        if (lastLiveConn !== true) {
+          const wasOffline = (lastLiveConn === false);
+          lastLiveConn = true;
+          if (wasOffline) {
+            console.log("[AntiDoze] Cab client came online again. Refreshing fleet data immediately.");
+            fetchFleetData();
+          }
+        }
+
+        // Instant update when alert reason transitions (e.g. Healed, Rest Reset, Nod)
+        if (lastLiveAlert !== null && live.active_alert_reason && live.active_alert_reason !== lastLiveAlert) {
+          lastLiveAlert = live.active_alert_reason;
+          fetchFleetData();
+        }
+        lastLiveAlert = live.active_alert_reason || "";
+
+        if (isCrit) {
+          card.style.border = "2px solid #EF4444";
+          card.style.background = "linear-gradient(135deg, #2D0C14, #450A16)";
+          card.style.boxShadow = "0 0 25px rgba(239, 68, 68, 0.6)";
+          dot.style.background = "#EF4444";
+          dot.style.boxShadow = "0 0 12px #EF4444";
+        } else if (currentStrikes === 2) {
+          card.style.border = "2px solid #F97316";
+          card.style.background = "linear-gradient(135deg, #1C120C, #2E1B0E)";
+          card.style.boxShadow = "0 0 15px rgba(249, 115, 22, 0.4)";
+          dot.style.background = "#FB923C";
+          dot.style.boxShadow = "0 0 10px #FB923C";
+        } else if (currentStrikes === 1) {
+          card.style.border = "2px solid #F59E0B";
+          card.style.background = "linear-gradient(135deg, #1A1708, #2A240C)";
+          card.style.boxShadow = "0 0 12px rgba(245, 158, 11, 0.3)";
+          dot.style.background = "#FBBF24";
+          dot.style.boxShadow = "0 0 10px #FBBF24";
+        } else {
+          card.style.border = "2px solid #0284C7";
+          card.style.background = "linear-gradient(135deg, #0B1322, #111A2E)";
+          card.style.boxShadow = "none";
+          dot.style.background = "#10B981";
+          dot.style.boxShadow = "0 0 10px #10B981";
+        }
+
+        // Camera / Detection state
+        if (live.is_resting) {
+          document.getElementById("liveCameraState").innerText = "Driver at Rest Stop • Snooze Active";
+        } else if (!live.camera_enabled) {
+          document.getElementById("liveCameraState").innerText = "Camera Standby (Key 'T' to toggle)";
+        } else if (!live.face_detected) {
+          document.getElementById("liveCameraState").innerText = "⚠️ No Driver Face Detected";
+        } else {
+          document.getElementById("liveCameraState").innerText = `FPS: ${live.fps || 30} • AI Tracking Active`;
+        }
+
+        // Live EAR (Eye Openness)
+        const earVal = document.getElementById("liveEarVal");
+        const earState = document.getElementById("liveEarState");
+        const earBar = document.getElementById("liveEarBar");
+
+        if (live.ear !== null && live.ear !== undefined) {
+          earVal.innerText = Number(live.ear).toFixed(3);
+          const earPct = Math.min(100, Math.max(0, Math.round((live.ear / 0.40) * 100)));
+          earBar.style.width = `${earPct}%`;
+
+          if (live.continuous_closed > 0) {
+            earState.innerText = `Closed (${live.continuous_closed.toFixed(1)}s)`;
+            earState.style.color = "#EF4444";
+            earBar.style.background = "#EF4444";
+          } else if (live.flutter_stack > 0) {
+            earState.innerText = `Fluttering (${live.flutter_stack.toFixed(1)}s)`;
+            earState.style.color = "#F59E0B";
+            earBar.style.background = "#F59E0B";
+          } else {
+            earState.innerText = "Eyes Open";
+            earState.style.color = "#10B981";
+            earBar.style.background = "#10B981";
+          }
+        } else {
+          earVal.innerText = "—";
+          earState.innerText = live.is_resting ? "Resting" : "Standby";
+          earBar.style.width = "0%";
+        }
+
+        // Posture & Glance
+        const pitchVal = document.getElementById("livePitchVal");
+        const postureSub = document.getElementById("livePostureSub");
+        if (live.pitch !== null && live.pitch !== undefined) {
+          pitchVal.innerText = Number(live.pitch).toFixed(2);
+          if (live.nod_duration > 0) {
+            postureSub.innerText = `⚠️ Head Slump (${live.nod_duration.toFixed(1)}s)`;
+            postureSub.style.color = "#EF4444";
+          } else if (live.pitch < 0.85) {
+            postureSub.innerText = "Head Dropping Low";
+            postureSub.style.color = "#F59E0B";
+          } else if (live.pitch > 1.25) {
+            postureSub.innerText = "Head Tilted Up";
+            postureSub.style.color = "#38BDF8";
+          } else {
+            postureSub.innerText = "Posture Normal (Upright)";
+            postureSub.style.color = "#94A3B8";
+          }
+        } else {
+          pitchVal.innerText = "—";
+          postureSub.innerText = "Calibrating posture";
+          postureSub.style.color = "#94A3B8";
+        }
+
+        document.getElementById("liveGlanceVal").innerText = live.glance || "FORWARD";
+
+        // Streak & Trip
+        document.getElementById("liveStreakVal").innerText = `⚡ ${live.clean_streak || "00:00"}`;
+        document.getElementById("liveTripVal").innerText = `Drive Clock: ${live.trip_elapsed || "00:00:00"}`;
+
+      } catch (err) {
+        // Polling gracefully ignores connection gaps
+      }
+    }
+
+    // Fetch and render fleet database data (every 10s or immediately on strike/status changes)
+    async function fetchFleetData() {
+      try {
+        countdownSec = 10;
+        const driverFilter = document.getElementById("driverFilter").value;
+        const criticalFilter = document.getElementById("criticalFilter").value;
+
+        // 1. Fetch KPIs
+        const resKpi = await fetch(`${API_BASE}/api/kpis`);
+        const kpis = await resKpi.json();
+
+        document.getElementById("kpiTotalDrivers").innerText = kpis.total_drivers;
+        if (document.getElementById("kpiConnectionSub")) {
+          document.getElementById("kpiConnectionSub").innerText = `${kpis.active_drivers || 0} Connected • ${kpis.inactive_drivers || 0} Inactive`;
+        }
+        document.getElementById("kpiCriticalDrivers").innerText = kpis.critical_drivers;
+        document.getElementById("kpiWarningDrivers").innerText = kpis.warning_drivers;
+        document.getElementById("kpiCautionDrivers").innerText = kpis.caution_drivers;
+        document.getElementById("kpiTopDrivers").innerText = kpis.top_drivers;
+        document.getElementById("kpiTotalLogs").innerText = kpis.total_logs;
+
+        // Emergency banner
+        const banner = document.getElementById("emergencyBanner");
+        if (kpis.critical_drivers > 0) {
+          banner.style.display = "flex";
+          if (kpis.critical_drivers > lastCriticalCount) {
+            playAlertChime();
+          }
+        } else {
+          banner.style.display = "none";
+        }
+        lastCriticalCount = kpis.critical_drivers;
+
+        // 2. Fetch Drivers
+        const resDrivers = await fetch(`${API_BASE}/api/drivers`);
+        const drivers = await resDrivers.json();
+        renderDriversGrid(drivers);
+        updateDriverFilterDropdown(drivers);
+
+        // 3. Fetch Logs
+        let url = `${API_BASE}/api/logs?limit=100`;
+        if (driverFilter) url += `&driver_id=${encodeURIComponent(driverFilter)}`;
+        if (criticalFilter === "critical") url += `&critical_only=1`;
+
+        const resLogs = await fetch(url);
+        const logs = await resLogs.json();
+        renderTelemetryTable(logs);
+
+      } catch (err) {
+        console.error("Error fetching fleet data:", err);
+      }
+    }
+
+    let driverOnlineFilter = 'all';
+    let lastCachedDrivers = [];
+
+    function setDriverOnlineFilter(filter) {
+      driverOnlineFilter = filter;
+      document.getElementById("btnFilterAll").className = (filter === 'all') ? "pill-btn active" : "pill-btn";
+      document.getElementById("btnFilterOnline").className = (filter === 'online') ? "pill-btn pill-online active" : "pill-btn pill-online";
+      document.getElementById("btnFilterOffline").className = (filter === 'offline') ? "pill-btn pill-offline active" : "pill-btn pill-offline";
+      if (lastCachedDrivers) {
+        renderDriversGrid(lastCachedDrivers);
+      }
+    }
+
+    function renderDriversGrid(drivers) {
+      lastCachedDrivers = drivers || [];
+      const container = document.getElementById("driversGrid");
+      if (!drivers || drivers.length === 0) {
+        container.innerHTML = '<div class="empty-state">No drivers registered in fleet database.</div>';
+        return;
+      }
+
+      const totalCount = drivers.length;
+      const onlineCount = drivers.filter(d => d.is_connected === 1 || d.status === 'ACTIVE').length;
+      const offlineCount = totalCount - onlineCount;
+
+      if (document.getElementById("cntAllDrivers")) document.getElementById("cntAllDrivers").innerText = totalCount;
+      if (document.getElementById("cntOnlineDrivers")) document.getElementById("cntOnlineDrivers").innerText = onlineCount;
+      if (document.getElementById("cntOfflineDrivers")) document.getElementById("cntOfflineDrivers").innerText = offlineCount;
+
+      // Filter drivers based on active toggle
+      const filteredDrivers = drivers.filter(d => {
+        const isConn = (d.is_connected === 1 || d.status === 'ACTIVE');
+        if (driverOnlineFilter === 'online') return isConn;
+        if (driverOnlineFilter === 'offline') return !isConn;
+        return true;
+      });
+
+      if (filteredDrivers.length === 0) {
+        container.innerHTML = `<div class="empty-state">No drivers currently ${driverOnlineFilter}.</div>`;
+        return;
+      }
+
+      container.innerHTML = filteredDrivers.map(d => {
+        const isConn = (d.is_connected === 1 || d.status === 'ACTIVE');
+        // Inactive drivers do not display active warnings or critical glow
+        const isCrit = isConn && (d.is_critical === 1 || d.strike_count >= 3);
+        const cardClass = isConn ? (isCrit ? "driver-card driver-critical" : "driver-card") : "driver-card driver-offline";
+        const badgeHtml = isConn 
+          ? getStrikeBadgeHtml(d.strike_count, d.strike_status, isCrit)
+          : '<span class="badge" style="background: #1E293B; color: #64748B; border: 1px solid #334155;">○ STANDBY (OFFLINE)</span>';
+
+        return `
+          <div class="${cardClass}">
+            <div class="driver-card-head">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="driver-id-badge">${d.driver_id}</span>
+                ${isConn ? 
+                  '<span class="badge badge-safe" style="font-size: 10px; padding: 2px 7px;">● CONNECTED</span>' : 
+                  '<span class="badge" style="background: #1E293B; color: #64748B; font-size: 10px; padding: 2px 7px;">○ INACTIVE</span>'
+                }
+              </div>
+              ${badgeHtml}
+            </div>
+            <div class="driver-name">${d.driver_name}</div>
+            <div class="driver-route">📍 ${d.vehicle_id} • ${d.route_name}</div>
+            <div class="driver-metrics">
+              <div class="metric-item">
+                <span>Clean Streak:</span>
+                <span>⚡ ${d.clean_streak || "00:00"}</span>
+              </div>
+              <div class="metric-item">
+                <span>Trip Elapsed:</span>
+                <span>⏱️ ${d.trip_elapsed || "00:00"}</span>
+              </div>
+              <div class="metric-item">
+                <span>Cab Status:</span>
+                <span style="color: ${isConn ? '#34D399' : '#64748B'}; font-weight: 700;">
+                  ${isConn ? 'ACTIVE' : 'INACTIVE'}
+                </span>
+              </div>
+              <div class="metric-item">
+                <span>Last Heartbeat:</span>
+                <span>${d.last_update ? d.last_update.split(" ")[1] : "Just now"}</span>
+              </div>
+            </div>
+            <div style="display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap;">
+              <button class="btn" style="flex: 1; padding: 5px 8px; font-size: 11px;" onclick="filterByDriver('${d.driver_id}')">
+                Inspect Logs
+              </button>
+              <button class="btn" style="padding: 5px 8px; font-size: 11px; background: ${isConn ? '#1E293B' : '#065F46'}; color: ${isConn ? '#94A3B8' : '#34D399'}; border: 1px solid ${isConn ? '#334155' : '#10B981'};" onclick="toggleDriverOnline('${d.driver_id}', ${!isConn})">
+                ${isConn ? '○ Set Offline' : '● Set Online'}
+              </button>
+              ${isCrit ? `
+                <button class="btn btn-primary" style="flex: 1; padding: 5px 8px; font-size: 11px; background: #DC2626;" onclick="alert('Dispatching Cab Call to ${d.driver_id} (${d.driver_name})!')">
+                  📞 Call Cab
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    async function toggleDriverOnline(driverId, targetState) {
+      try {
+        const res = await fetch(`${API_BASE}/api/drivers/toggle`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ driver_id: driverId, is_connected: targetState })
+        });
+        const data = await res.json();
+        if (data.success) {
+          await fetchFleetData();
+          await fetchLiveCabStream();
+        } else {
+          alert('Could not toggle driver status: ' + (data.error || 'Server error'));
+        }
+      } catch (err) {
+        console.error('Error toggling driver status:', err);
+      }
+    }
+
+    async function deleteLog(logId) {
+      if (!confirm(`Are you sure you want to remove telemetry drive log #${logId} from the database?`)) return;
+      try {
+        const res = await fetch(`${API_BASE}/api/logs/delete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ log_id: logId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          fetchFleetData();
+        } else {
+          alert('Could not remove log entry.');
+        }
+      } catch (err) {
+        console.error('Error removing drive log:', err);
+      }
+    }
+
+    async function clearAllLogs() {
+      const driverFilter = document.getElementById("driverFilter").value;
+      const confirmText = driverFilter
+        ? `Are you sure you want to clear all telemetry drive logs for driver ${driverFilter}?`
+        : `Are you sure you want to clear ALL telemetry drive logs from the database? This cannot be undone.`;
+
+      if (!confirm(confirmText)) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/logs/clear`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ driver_id: driverFilter || null })
+        });
+        const data = await res.json();
+        if (data.success) {
+          fetchFleetData();
+        } else {
+          alert('Could not clear logs.');
+        }
+      } catch (err) {
+        console.error('Error clearing drive logs:', err);
+      }
+    }
+
+    function updateDriverFilterDropdown(drivers) {
+      const select = document.getElementById("driverFilter");
+      const currentVal = select.value;
+      const opts = ['<option value="">All Drivers</option>'];
+      drivers.forEach(d => {
+        opts.push(`<option value="${d.driver_id}" ${d.driver_id === currentVal ? "selected" : ""}>${d.driver_id} (${d.driver_name})</option>`);
+      });
+      select.innerHTML = opts.join("");
+    }
+
+    function filterByDriver(driverId) {
+      document.getElementById("driverFilter").value = driverId;
+      document.getElementById("criticalFilter").value = "all";
+      fetchFleetData();
+    }
+
+    function renderTelemetryTable(logs) {
+      const tbody = document.getElementById("telemetryTableBody");
+      if (!logs || logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No telemetry records match current filters.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = logs.map(row => {
+        const evt = (row.alert_type || "").toUpperCase();
+        const isOfflineEvt = evt.includes("DISCONNECTED") || evt.includes("OFFLINE") || evt.includes("INACTIVE");
+        // Inactive / disconnection log events do not display critical siren styling
+        const isCrit = !isOfflineEvt && (row.is_critical === 1 || row.strike_count >= 3 || (row.strike_status && row.strike_status.includes("CRITICAL")));
+        const rowClass = isCrit ? "critical-row" : "";
+        const badgeHtml = isOfflineEvt
+          ? '<span class="badge" style="background: #1E293B; color: #64748B; border: 1px solid #334155;">○ OFFLINE</span>'
+          : getStrikeBadgeHtml(row.strike_count, row.strike_status, isCrit);
+
+        let eventColor = "#F1F5F9";
+        if (evt.includes("CONNECTED") || evt.includes("ONLINE")) {
+          eventColor = "#34D399";
+        } else if (isOfflineEvt) {
+          eventColor = "#64748B";
+        } else if (evt.includes("STRIKE") || evt.includes("ALARM")) {
+          eventColor = isCrit ? "#F87171" : "#FB923C";
+        } else if (evt.includes("HEALED") || evt.includes("RESET")) {
+          eventColor = "#38BDF8";
+        }
+
+        return `
+          <tr class="${rowClass}">
+            <td>${badgeHtml}</td>
+            <td><span class="driver-id-badge">${row.driver_id}</span></td>
+            <td class="timestamp-cell">📅 ${row.timestamp}</td>
+            <td><strong style="color: ${eventColor};">${row.alert_type}</strong></td>
+            <td><small style="color: #94A3B8;">${row.vehicle_id || "TRK-001"} • ${row.location || "Highway Route"}</small></td>
+            <td class="telemetry-cell">EAR: ${row.ear_value != null ? row.ear_value.toFixed(3) : "—"} | Pitch: ${row.head_pitch != null ? row.head_pitch.toFixed(2) : "—"}</td>
+            <td>${row.glance_direction || "FORWARD"}</td>
+            <td>⚡ ${row.clean_streak || "00:00"}</td>
+            <td>⏱️ ${row.trip_elapsed || "00:00"}</td>
+            <td>
+              <div style="display: flex; gap: 6px; align-items: center;">
+                <button class="btn btn-delete" onclick="deleteLog(${row.id})" title="Remove log #${row.id} from database">
+                  🗑️ Remove
+                </button>
+                ${isCrit ? `
+                  <button class="btn" style="background: #991B1B; color: #FFF; padding: 4px 8px; font-size: 11px; border: 1px solid #EF4444;" onclick="alert('Acknowledged Critical Alert for ${row.driver_id} at ${row.timestamp}')">
+                    Ack
+                  </button>
+                ` : ''}
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function exportCSV() {
+      window.open(`${API_BASE}/api/export-csv`, "_blank");
+    }
+
+    // Dynamic 10-Second Countdown & Auto-Refresh Interval for Database
+    setInterval(() => {
+      countdownSec -= 1;
+      if (countdownSec <= 0) {
+        countdownSec = 10;
+        fetchFleetData();
+      }
+      document.getElementById("syncCountdown").innerText = `Next DB update: ${countdownSec}s`;
+    }, 1000);
+
+    // High-Frequency 1-Second Polling for Non-Simulation Live Cab Telemetry
+    setInterval(fetchLiveCabStream, 1000);
+
+    // Initial Load
+    checkNetworkInfo();
+    fetchFleetData();
+    fetchLiveCabStream();
+  </script>
+</body>
+</html>
